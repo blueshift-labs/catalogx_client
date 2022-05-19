@@ -7,53 +7,49 @@ require 'typhoeus'
 # Modules
 require "catalogx_client/version"
 require "catalogx_client/config"
-require "catalogx_client/should_belong_to_account"
 require "catalogx_client/base_client"
+require "catalogx_client/uts_should_belong_to_account"
+require "catalogx_client/uts_product"
+
 
 module CatalogXClient
-  class ConfigError < StandardError
-    def initialize(errors); errors.join("\n") end
-  end
   PATH_PREFIX = "/api/v2".freeze
   DEFAULT_MAX_RETRY = 3
 
-  attr_accessor :client_id,
-    :max_retry,
-    :connections,
-    :base_uri,
-    :port,
-    :pool_size,
-    :timeout
+  class ConfigError < StandardError; end
+  class << self
+    def connections() @connections end
+    def client_id() @client_id end
+    def timeout() @timeout end
+    def max_retry() @max_retry end
 
+    def configure(&blk)
+      self.validate(&blk)
 
-  def self.configure(&blk)
-    validate(&blk)
-
-    @connections = ConnectionPool.new(size: @pool_size, timeout: @timeout) do
-      connection = Faraday.new(url: @base_uri) do |conn|
-        if LOG_FARADAY_RESPONSES
-          conn.use Faraday::Response::Logger, APP_LOGGER || :logger
+      @connections = ConnectionPool.new(size: @pool_size, timeout: @timeout) do
+        connection = Faraday.new(url: "http://#{@base_uri}") do |conn|
+          if LOG_FARADAY_RESPONSES
+            conn.use Faraday::Response::Logger, APP_LOGGER || :logger
+          end
+          conn.adapter :typhoeus
         end
-        conn.adapter :typhoeus
+        connection.path_prefix = PATH_PREFIX
+        connection
       end
-      connection.path_prefix = PATH_PREFIX
-      connection
     end
-  end
 
-  def validate(&blk)
-    config = CatalogXClient::Config.new
-    yield(config)
+    def validate(&blk)
+      config = CatalogXClient::Config.new
 
-    errors = []
-    @host = options.host || errors.push("must configure a host")
-    @port = options.port || 80
-    @uri = URI("#{host}:#{port}")
-    @max_retry = options.max_retry || DEFAULT_MAX_RETRY
-    @pool_size = options.pool || 32
-    @timeout = options.timeout || 10
-    @client_id = options.client_id
+      yield(config)
 
-    raise ConfigError.new(errors) unless errors.empty?
+      host = config.host || raise(ConfigError.new("must provide host in config"))
+      port = config.port || 80
+      @base_uri = URI("#{host}:#{port}")
+      @max_retry = config.max_retry || DEFAULT_MAX_RETRY
+      @pool_size = config.pool || 40
+      @timeout = config.timeout || 2
+      @client_id = config.client_id
+    end
   end
 end
