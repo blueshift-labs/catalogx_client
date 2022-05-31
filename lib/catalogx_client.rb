@@ -10,6 +10,8 @@ require "catalogx_client/config"
 require "catalogx_client/base_client"
 require "catalogx_client/uts_should_belong_to_account"
 require "catalogx_client/uts_product"
+require "catalogx_client/bsft_should_belong_to_account"
+require "catalogx_client/bsft_product"
 
 
 module CatalogXClient
@@ -47,7 +49,7 @@ module CatalogXClient
       port = config.port || 80
       @base_uri = URI("#{host}:#{port}")
       @max_retry = config.max_retry || DEFAULT_MAX_RETRY
-      @pool_size = config.pool || 40
+      @pool_size = config.pool || 32
       @timeout = config.timeout || 2
       @client_id = config.client_id
     end
