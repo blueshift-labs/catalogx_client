@@ -2,6 +2,7 @@ module CatalogXClient
   class NotFoundError < StandardError; end
   class ResourceLockedError < StandardError; end
   class ConnectionError < StandardError; end
+  class RetryError < StandardError; end
   class Error < StandardError; end
 
   class BaseClient
@@ -31,9 +32,9 @@ module CatalogXClient
         if retry_count <= CatalogXClient.max_retry
           sleep(1)
           retry
+        else
+          raise RetryError.new("CatalogXClient max retry error: #{ex.message}")
         end
-
-        raise ConnectionError.new("CatalogXClient connection error: #{ex.message}")
 
       rescue Faraday::ConnectionFailed => ex
         $statsd.count("catalogx_client.faraday_connection_error", 1)
@@ -47,13 +48,13 @@ module CatalogXClient
           retry
         end
 
-        $statsd.count("catalogx_client.resource_locked_error", 1)
+        $statsd.count("catalogx_client.resource_locked.error", 1)
         raise
 
       rescue
         $statsd.increment(
           "catalogx_client.handle_request.unhandled.exception",
-          tags: [ "account_uuid:#{account.uuid}" ]
+          tags: [ "account_uuid:#{@account_uuid}" ]
         )
         raise
       end
@@ -70,7 +71,7 @@ module CatalogXClient
         raise ResourceLockedError.new("CatalogXClient resource locked error=#{result.body}")
 
       else
-        raise Error.new("CatalogXClient error status=#{result.status} #{result.body}")
+        raise Error.new("CatalogXClient error status=#{result.status}, body=#{result.body}")
       end
     end
   end
