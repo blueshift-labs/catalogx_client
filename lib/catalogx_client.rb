@@ -15,6 +15,9 @@ require "catalogx_client/product"
 module CatalogXClient
   PATH_PREFIX = "/api/v2".freeze
   DEFAULT_MAX_RETRY = 3
+  # https://github.com/lostisland/faraday/blob/v0.9.1/lib/faraday/request.rb#L79
+  # timeout in seconds
+  DEFAULT_TIMEOUT = 2
 
   class ConfigError < StandardError; end
   class << self
@@ -49,7 +52,7 @@ module CatalogXClient
       @base_uri = URI("#{host}:#{port}")
       @max_retry = config.max_retry || DEFAULT_MAX_RETRY
       @pool_size = config.pool || 32
-      @timeout = config.timeout || 2
+      @timeout = config.timeout || DEFAULT_TIMEOUT
       @client_id = config.client_id
     end
   end

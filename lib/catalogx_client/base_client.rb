@@ -1,15 +1,12 @@
+require 'catalogx_client/http_status_codes'
+
 module CatalogXClient
   class NotFoundError < StandardError; end
   class ResourceLockedError < StandardError; end
   class ConnectionError < StandardError; end
-  class RetryError < StandardError; end
   class Error < StandardError; end
 
   class BaseClient
-
-    SUCCESS_CODES = Set.new([200, 201, 204, 206]).freeze
-    CONNECTION_ERROR_CODES = Set.new([408, 502, 503, 504]).freeze
-
     def handle_request(url, http_verb, query_params: nil, body: nil)
       retry_count = 0
       begin
@@ -30,21 +27,28 @@ module CatalogXClient
         $statsd.count("catalogx_client.timeout.retry", 1)
         retry_count += 1
         if retry_count <= CatalogXClient.max_retry
-          sleep(1)
+          sleep(rand(0.8..1.5))
           retry
         else
-          raise RetryError.new("CatalogXClient max retry error: #{ex.message}")
+          raise
         end
 
       rescue Faraday::ConnectionFailed => ex
-        $statsd.count("catalogx_client.faraday_connection_error", 1)
-        raise ConnectionError.new("CatalogXClient connection error: #{ex.message}")
+        $statsd.count("catalogx_client.faraday_connection_error.retry", 1)
+        retry_count += 1
+        if retry_count <= CatalogXClient.max_retry
+          sleep(rand(0.8..1.5))
+          retry
+        else
+          $statsd.count("catalogx_client.faraday_connection_error.retry_exhausted", 1)
+          raise
+        end
 
       rescue ResourceLockedError => ex
         $statsd.count("catalogx_client.resource_locked.retry", 1)
         retry_count += 1
         if retry_count <= CatalogXClient.max_retry
-          sleep(1)
+          sleep(rand(0.8..1.5))
           retry
         end
 
@@ -61,7 +65,7 @@ module CatalogXClient
     end
 
     def handle_result(result)
-      if SUCCESS_CODES.include?(result.status)
+      if HTTPStatusCodes.success_codes.include?(result.status)
         JSON.load(result.body)
 
       elsif result.status == 404

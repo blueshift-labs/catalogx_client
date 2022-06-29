@@ -67,7 +67,7 @@ module CatalogXClient
           catalogx_client_statsd_exception('set_out_of_stock', @migration_status)
         end
 
-        resp = uts_set_stock(catalog_uuid)
+        resp = uts_set_out_of_stock(catalog_uuid)
         CATALOGX_LOGGER.info("service=uts|api=set_out_of_stock|response=#{resp.to_s}")
         resp
       elsif @migration_status == 'complete'
@@ -75,7 +75,7 @@ module CatalogXClient
         body = {"catalog_uuid" => catalog_uuid}
         handle_request(url_path, :post, query_params: params, body: body)
       else
-        uts_set_stock(catalog_uuid)
+        uts_set_out_of_stock(catalog_uuid)
       end
     end
 
@@ -96,7 +96,7 @@ module CatalogXClient
       end
     end
 
-    def uts_set_stock(catalog_uuid, caller_ctx)
+    def uts_set_out_of_stock(catalog_uuid, caller_ctx)
         CatalogServiceClient::Product
           .for_account(@account_uuid, "catalog_#{caller_ctx}")
           .set_out_of_stock(catalog_uuid, @account_uuid)
