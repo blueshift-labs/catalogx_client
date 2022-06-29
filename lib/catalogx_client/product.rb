@@ -9,16 +9,14 @@ module CatalogXClient
         begin
           params = { overwrite: overwrite, testing: testing }
           resp = handle_request(url_path, :post, query_params: params, body: product)
-          api = overwrite ? 'create' : 'update'
-          CATALOGX_LOGGER.info("service=catalogx|response=#{resp.to_s}")
+          CATALOGX_LOGGER.info("service=catalogx|api=upsert|response=#{resp.to_s}")
         rescue => ex
           CATALOGX_LOGGER.error("#{ex}")
           catalogx_client_statsd_exception('upsert', @migration_status)
         end
 
         resp = uts_create(product)
-        api = overwrite ? 'create' : 'update'
-        CATALOGX_LOGGER.info("service=uts|api=#{api}|response=#{resp.to_s}")
+        CATALOGX_LOGGER.info("service=uts|api=upsert|response=#{resp.to_s}")
         resp
       elsif @migration_status == 'complete'
         params = { overwrite: overwrite }
