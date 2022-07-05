@@ -2,12 +2,12 @@ module CatalogXClient
   class Product < BaseClient
     extend ShouldBelongToAccount
 
-    def upsert(product, caller_ctx, overwrite: false, testing: false)
+    def upsert(product, caller_ctx, overwrite: false)
       url_path = "accounts/#{@account_uuid}/products"
 
       if @migration_status == 'log_responses'
         begin
-          params = { overwrite: overwrite, testing: testing }
+          params = { overwrite: overwrite, testing: true }
           resp = handle_request(url_path, :post, query_params: params, body: product)
           CATALOGX_LOGGER.info("service=catalogx|api=upsert|response=#{resp.to_s}")
         rescue => ex
@@ -26,12 +26,12 @@ module CatalogXClient
       end
     end
 
-    def batch_upsert(products, caller_ctx, overwrite: false, testing: false)
+    def batch_upsert(products, caller_ctx, overwrite: false)
       url_path = "accounts/#{@account_uuid}/products/batch_upsert"
 
       if @migration_status == 'log_responses'
         begin
-          params = { overwrite: overwrite, testing: testing }
+          params = { overwrite: overwrite, testing: true }
           resp = handle_request(url_path, :post, query_params: params, body: {products: products})
           api = overwrite ? 'bulk_create' : 'bulk_update'
           CATALOGX_LOGGER.info("service=catalogx|api=#{api}|response=#{resp.to_s}")
@@ -56,7 +56,7 @@ module CatalogXClient
       url_path = "accounts/#{@account_uuid}/products/set_out_of_stock"
       if @migration_status == 'log_responses'
         begin
-          params = { overwrite: overwrite }
+          params = { overwrite: overwrite, testing: true }
           body =  {"catalog_uuid" => catalog_uuid}
           resp = handle_request(url_path, :post, query_params: params, body: body)
           CATALOGX_LOGGER.info("service=catalogx|api=set_out_of_stock|response=#{resp.to_s}")
