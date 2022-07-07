@@ -7,7 +7,7 @@ module CatalogXClient
   class Error < StandardError; end
 
   class BaseClient
-    def handle_request(url, http_verb, query_params: nil, body: nil)
+    def handle_request(path, http_verb, query_params: nil, body: nil)
       retry_count = 0
       begin
         result = nil
@@ -18,11 +18,13 @@ module CatalogXClient
             request.params = query_params if query_params.present?
             request.body = body.to_json if body.present?
             request.options.timeout = CatalogXClient.timeout
-            request.url(url)
+            request.url path
           end
         end
         handle_result(result)
 
+      rescue => ex
+        pp ex
       rescue Faraday::TimeoutError => ex
         $statsd.count("catalogx_client.timeout.retry", 1)
         retry_count += 1

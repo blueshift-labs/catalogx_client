@@ -4,7 +4,7 @@ module HTTPStatusCodes
   NO_CONTENT = 204
   PARTIAL_CONTENT = 206
 
-  def success_codes
+  def self.success_codes
     Set.new([
       OK,
       CREATED,
