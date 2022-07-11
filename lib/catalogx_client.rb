@@ -8,7 +8,6 @@ require 'typhoeus'
 require "catalogx_client/version"
 require "catalogx_client/config"
 require "catalogx_client/base_client"
-require "catalogx_client/should_belong_to_account"
 require "catalogx_client/product"
 
 

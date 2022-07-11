@@ -7,7 +7,12 @@ module CatalogXClient
   class Error < StandardError; end
 
   class BaseClient
-    def handle_request(path, http_verb, query_params: nil, body: nil)
+    def self.get_migration_status(account_uuid)
+      migration_status = CacheMetadata.cached_catalogx_migration_status_by_uuid(account_uuid)
+      migration_status || 'default'
+    end
+
+    def self.handle_request(path, http_verb, query_params: nil, body: nil)
       retry_count = 0
       begin
         result = nil
@@ -66,7 +71,7 @@ module CatalogXClient
       end
     end
 
-    def handle_result(result)
+    def self.handle_result(result)
       if HTTPStatusCodes.success_codes.include?(result.status)
         JSON.load(result.body)
 
