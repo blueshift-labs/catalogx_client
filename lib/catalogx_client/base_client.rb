@@ -28,8 +28,6 @@ module CatalogXClient
         end
         handle_result(result)
 
-      rescue => ex
-        pp ex
       rescue Faraday::TimeoutError => ex
         $statsd.count("catalogx_client.timeout.retry", 1)
         retry_count += 1
