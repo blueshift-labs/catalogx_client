@@ -1,5 +1,3 @@
-require 'catalogx_client/http_status_codes'
-
 module CatalogXClient
   class NotFoundError < StandardError; end
   class ResourceLockedError < StandardError; end
