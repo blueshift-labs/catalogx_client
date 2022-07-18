@@ -32,7 +32,7 @@ module CatalogXClient
         $statsd.count("catalogx_client.timeout.retry", 1)
         retry_count += 1
         if retry_count <= CatalogXClient.max_retry
-          sleep(rand(0.8..1.5))
+          sleep(rand(1..4))
           retry
         else
           raise
@@ -42,7 +42,7 @@ module CatalogXClient
         $statsd.count("catalogx_client.faraday_connection_error.retry", 1)
         retry_count += 1
         if retry_count <= CatalogXClient.max_retry
-          sleep(rand(0.8..1.5))
+          sleep(rand(1..4))
           retry
         else
           $statsd.count("catalogx_client.faraday_connection_error.retry_exhausted", 1)
@@ -53,7 +53,7 @@ module CatalogXClient
         $statsd.count("catalogx_client.resource_locked.retry", 1)
         retry_count += 1
         if retry_count <= CatalogXClient.max_retry
-          sleep(rand(0.8..1.5))
+          sleep(rand(1..4))
           retry
         end
 
@@ -70,7 +70,7 @@ module CatalogXClient
     end
 
     def self.handle_result(result)
-      if HTTPStatusCodes.success_codes.include?(result.status)
+      if result.success?
         JSON.load(result.body)
 
       elsif result.status == 404
