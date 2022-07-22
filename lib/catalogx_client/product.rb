@@ -30,6 +30,8 @@ module CatalogXClient
       account_migration_status = get_migration_status(account_uuid)
       url_path = "accounts/#{account_uuid}/products/batch_upsert"
 
+      CATALOGX_LOGGER.info("migration_status: #{account_migration_status}, uuid: #{account_uuid}")
+
       if account_migration_status == 'log_responses'
         begin
           params = { overwrite: overwrite, testing: true }

@@ -26,6 +26,8 @@ module CatalogXClient
     def max_retry() @max_retry end
 
     def configure(&blk)
+      puts "inside configure: #{ENV['LOG_TO_STDOUT']}"
+      CATALOGX_LOGGER.info("inside client config")
       self.validate(&blk)
 
       @connections = ConnectionPool.new(size: @pool_size, timeout: @timeout) do
