@@ -69,7 +69,7 @@ module CatalogXClient
 
     def self.handle_result(result)
       if result.success?
-        JSON.load(result.body)
+        Hashie::Mash.new(Oj.load(result.body))
 
       elsif result.status == 404
         raise NotFoundError.new("CatalogXClient resource not found error=#{result.body}")
