@@ -2,15 +2,15 @@ module CatalogXClient
   class NotFoundError < StandardError; end
   class ResourceLockedError < StandardError; end
   class ConnectionError < StandardError; end
-  class RetryError < StandardError; end
   class Error < StandardError; end
 
   class BaseClient
+    def self.get_migration_status(account_uuid)
+      migration_status = CacheMetadata.cached_catalogx_migration_status_by_uuid(account_uuid)
+      migration_status || 'default'
+    end
 
-    SUCCESS_CODES = Set.new([200, 201, 204, 206]).freeze
-    CONNECTION_ERROR_CODES = Set.new([408, 502, 503, 504]).freeze
-
-    def handle_request(url, http_verb, query_params: nil, body: nil)
+    def self.handle_request(path, http_verb, query_params: nil, body: nil)
       retry_count = 0
       begin
         result = nil
@@ -21,7 +21,7 @@ module CatalogXClient
             request.params = query_params if query_params.present?
             request.body = body.to_json if body.present?
             request.options.timeout = CatalogXClient.timeout
-            request.url(url)
+            request.url path
           end
         end
         handle_result(result)
@@ -30,21 +30,28 @@ module CatalogXClient
         $statsd.count("catalogx_client.timeout.retry", 1)
         retry_count += 1
         if retry_count <= CatalogXClient.max_retry
-          sleep(1)
+          sleep(rand(1..4))
           retry
         else
-          raise RetryError.new("CatalogXClient max retry error: #{ex.message}")
+          raise
         end
 
       rescue Faraday::ConnectionFailed => ex
-        $statsd.count("catalogx_client.faraday_connection_error", 1)
-        raise ConnectionError.new("CatalogXClient connection error: #{ex.message}")
+        $statsd.count("catalogx_client.faraday_connection_error.retry", 1)
+        retry_count += 1
+        if retry_count <= CatalogXClient.max_retry
+          sleep(rand(1..4))
+          retry
+        else
+          $statsd.count("catalogx_client.faraday_connection_error.retry_exhausted", 1)
+          raise
+        end
 
       rescue ResourceLockedError => ex
         $statsd.count("catalogx_client.resource_locked.retry", 1)
         retry_count += 1
         if retry_count <= CatalogXClient.max_retry
-          sleep(1)
+          sleep(rand(1..4))
           retry
         end
 
@@ -60,9 +67,9 @@ module CatalogXClient
       end
     end
 
-    def handle_result(result)
-      if SUCCESS_CODES.include?(result.status)
-        JSON.load(result.body)
+    def self.handle_result(result)
+      if result.success?
+        Hashie::Mash.new(Oj.load(result.body))
 
       elsif result.status == 404
         raise NotFoundError.new("CatalogXClient resource not found error=#{result.body}")

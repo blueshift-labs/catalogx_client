@@ -8,13 +8,15 @@ require 'typhoeus'
 require "catalogx_client/version"
 require "catalogx_client/config"
 require "catalogx_client/base_client"
-require "catalogx_client/should_belong_to_account"
 require "catalogx_client/product"
 
 
 module CatalogXClient
   PATH_PREFIX = "/api/v2".freeze
   DEFAULT_MAX_RETRY = 3
+  # https://github.com/lostisland/faraday/blob/v0.9.1/lib/faraday/request.rb#L79
+  # timeout in seconds
+  DEFAULT_TIMEOUT = 2
 
   class ConfigError < StandardError; end
   class << self
@@ -24,6 +26,8 @@ module CatalogXClient
     def max_retry() @max_retry end
 
     def configure(&blk)
+      puts "inside configure: #{ENV['LOG_TO_STDOUT']}"
+      CATALOGX_LOGGER.info("inside client config")
       self.validate(&blk)
 
       @connections = ConnectionPool.new(size: @pool_size, timeout: @timeout) do
@@ -49,7 +53,7 @@ module CatalogXClient
       @base_uri = URI("#{host}:#{port}")
       @max_retry = config.max_retry || DEFAULT_MAX_RETRY
       @pool_size = config.pool || 32
-      @timeout = config.timeout || 2
+      @timeout = config.timeout || DEFAULT_TIMEOUT
       @client_id = config.client_id
     end
   end
