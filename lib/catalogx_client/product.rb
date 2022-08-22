@@ -1,112 +1,114 @@
 module CatalogXClient
   class Product < BaseClient
-    extend ShouldBelongToAccount
 
-    def upsert(product, overwrite: false, testing: false)
-      url_path = "accounts/#{@account_uuid}/products"
+    def self.upsert(product, account_uuid, caller_ctx, overwrite: false)
+      account_migration_status = get_migration_status(account_uuid)
+      url_path = "accounts/#{account_uuid}/products"
 
-      if @migration_status == 'log_responses'
+      if account_migration_status == 'log_responses'
         begin
-          params = { overwrite: overwrite, testing: testing }
-          resp = handle_request(url_path, :post, query_params: params, body: product)
-          api = overwrite ? 'create' : 'update'
-          CATALOGX_LOGGER.info("service=catalogx|response=#{resp.to_s}")
+          params = { overwrite: overwrite, testing: true }
+          resp = handle_request(url_path, :post, query_params: params, body: product, account_uuid: account_uuid)
+          CATALOGX_LOGGER.info("service=catalogx|api=upsert|response=#{resp.to_json}")
         rescue => ex
           CATALOGX_LOGGER.error("#{ex}")
-          catalogx_client_statsd_exception('upsert', @migration_status)
+          catalogx_client_statsd_exception('upsert', migration_status, account_uuid)
         end
 
-        resp = uts_create(product)
-        api = overwrite ? 'create' : 'update'
-        CATALOGX_LOGGER.info("service=uts|api=#{api}|response=#{resp.to_s}")
+        resp = uts_create(product, account_uuid, caller_ctx)
+        CATALOGX_LOGGER.info("service=uts|api=upsert|response=#{resp.to_json}")
         resp
-      elsif @migration_status == 'complete'
+      elsif account_migration_status == 'complete'
         params = { overwrite: overwrite }
-        resp = handle_request(url_path, :post, query_params: params, body: product)
+        resp = handle_request(url_path, :post, query_params: params, body: product, account_uuid: account_uuid)
       else
-        uts_create(product)
+        uts_create(product, account_uuid, caller_ctx)
       end
     end
 
-    def batch_upsert(products, overwrite: false, testing: false)
-      url_path = "accounts/#{@account_uuid}/products/batch_upsert"
+    def self.batch_upsert(products, account_uuid, caller_ctx, overwrite: false)
+      account_migration_status = get_migration_status(account_uuid)
+      url_path = "accounts/#{account_uuid}/products/batch_upsert"
 
-      if @migration_status == 'log_responses'
+      CATALOGX_LOGGER.info("migration_status: #{account_migration_status}, uuid: #{account_uuid}")
+
+      if account_migration_status == 'log_responses'
         begin
-          params = { overwrite: overwrite, testing: testing }
-          resp = handle_request(url_path, :post, query_params: params, body: {products: products})
+          params = { overwrite: overwrite, testing: true }
+          resp = handle_request(url_path, :post, query_params: params, body: {products: products}, account_uuid: account_uuid)
           api = overwrite ? 'bulk_create' : 'bulk_update'
-          CATALOGX_LOGGER.info("service=catalogx|api=#{api}|response=#{resp.to_s}")
+          CATALOGX_LOGGER.info("service=catalogx|api=#{api}|response=#{resp.to_json}")
         rescue => ex
           CATALOGX_LOGGER.error("#{ex}")
-          catalogx_client_statsd_exception('batch_upsert', @migration_status)
+          catalogx_client_statsd_exception('batch_upsert', account_migration_status, account_uuid)
         end
 
-        resp = uts_batch(products, overwrite)
+        resp = uts_batch(products, account_uuid, overwrite, caller_ctx)
         api = overwrite ? 'bulk_create' : 'bulk_update'
-        CATALOGX_LOGGER.info("service=uts|api=#{api}|response=#{resp.to_s}")
+        CATALOGX_LOGGER.info("service=uts|api=#{api}|response=#{resp.to_json}")
         resp
-      elsif @migration_status == 'complete'
+      elsif account_migration_status == 'complete'
         params = { overwrite: overwrite }
-        resp = handle_request(url_path, :post, query_params: params, body: {products: products})
+        resp = handle_request(url_path, :post, query_params: params, body: {products: products}, account_uuid: account_uuid)
       else
-        uts_batch(products, overwrite)
+        uts_batch(products, account_uuid, overwrite, caller_ctx)
       end
     end
 
-    def set_out_of_stock(catalog_uuid)
-      url_path = "accounts/#{@account_uuid}/products/set_out_of_stock"
-      if @migration_status == 'log_responses'
+    def self.set_out_of_stock(catalog_uuid, account_uuid, caller_ctx)
+      account_migration_status = get_migration_status(account_uuid)
+      url_path = "accounts/#{account_uuid}/products/set_out_of_stock"
+
+      if account_migration_status == 'log_responses'
         begin
-          params = { overwrite: overwrite }
+          params = { testing: true }
           body =  {"catalog_uuid" => catalog_uuid}
-          resp = handle_request(url_path, :post, query_params: params, body: body)
-          CATALOGX_LOGGER.info("service=catalogx|api=set_out_of_stock|response=#{resp.to_s}")
+          resp = handle_request(url_path, :post, query_params: params, body: body, account_uuid: account_uuid)
+          CATALOGX_LOGGER.info("service=catalogx|api=set_out_of_stock|response=#{resp.to_json}")
         rescue => ex
           CATALOGX_LOGGER.error("#{ex}")
-          catalogx_client_statsd_exception('set_out_of_stock', @migration_status)
+          catalogx_client_statsd_exception('set_out_of_stock', account_migration_status, account_uuid)
         end
 
-        resp = uts_set_stock(catalog_uuid)
-        CATALOGX_LOGGER.info("service=uts|api=set_out_of_stock|response=#{resp.to_s}")
+        resp = uts_set_out_of_stock(catalog_uuid, caller_ctx, account_uuid)
+        CATALOGX_LOGGER.info("service=uts|api=set_out_of_stock|response=#{resp.to_json}")
         resp
-      elsif @migration_status == 'complete'
-        params = { overwrite: overwrite }
+      elsif account_migration_status == 'complete'
         body = {"catalog_uuid" => catalog_uuid}
-        handle_request(url_path, :post, query_params: params, body: body)
+        handle_request(url_path, :post, query_params: {}, body: body, account_uuid: account_uuid)
       else
-        uts_set_stock(catalog_uuid)
+        uts_set_out_of_stock(catalog_uuid, caller_ctx, account_uuid)
       end
     end
 
-    def uts_create(product)
+    def self.uts_create(product, account_uuid, caller_ctx)
       CatalogServiceClient::Product
-        .for_account(@account_uuid, "catalog_controller").create(product)
+        .for_account(account_uuid, "catalog_#{caller_ctx}").create(product)
     end
 
-    def uts_batch(products, overwrite)
+    def self.uts_batch(products, account_uuid, overwrite, caller_ctx)
       if overwrite
         CatalogServiceClient::Product
-          .for_account(@account_uuid, "catalog_controller")
+          .for_account(account_uuid, "catalog_#{caller_ctx}")
           .bulk_create(products)
       else
         CatalogServiceClient::Product
-          .for_account(@account_uuid, "catalog_controller")
+          .for_account(account_uuid, "catalog_#{caller_ctx}")
           .bulk_update(products)
       end
     end
 
-    def uts_set_stock(catalog_uuid)
+    def self.uts_set_out_of_stock(catalog_uuid, caller_ctx, account_uuid)
         CatalogServiceClient::Product
-          .for_account(@account_uuid, "catalog_controller")
-          .set_out_of_stock(catalog_uuid, @account_uuid)
+          .for_account(account_uuid, "catalog_#{caller_ctx}")
+          .set_out_of_stock(catalog_uuid, account_uuid)
     end
 
-    def catalogx_client_statsd_exception(method, migration_status)
+    def self.catalogx_client_statsd_exception(method, migration_status, account_uuid)
       $statsd.increment(
         "catalogx_client.#{method}.exception",
         tags: [
-          "account_uuid:#{@account_uuid}",
+          "account_uuid:#{account_uuid}",
           "migration_status:#{migration_status}"
         ]
       )
